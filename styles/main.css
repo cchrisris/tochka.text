@@ -1,0 +1,312 @@
+:root {
+  color-scheme: light;
+  --bg: #f7f8fb;
+  --surface: #ffffff;
+  --text: #1a1d25;
+  --subtext: #5d6473;
+  --accent: #2c61ff;
+  --accent-hover: #1f4de3;
+  --border: #d5dae4;
+  --shadow: 0 10px 30px rgba(18, 24, 40, 0.08);
+  --radius-xl: 28px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.landing {
+  min-height: 100vh;
+  min-height: 100svh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+}
+
+.landing-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 1.2rem;
+}
+
+.rht-logo {
+  width: auto;
+  height: 58px;
+  object-fit: contain;
+}
+
+.about-button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.about-button:hover {
+  border-color: #bac2d2;
+  transform: translateY(-1px);
+}
+
+.search-shell {
+  width: min(92vw, 720px);
+  margin: 16vh auto auto;
+  padding: 0.2rem 1rem 1rem;
+}
+
+.brand {
+  text-align: center;
+  font-family: "Space Grotesk", Manrope, Inter, sans-serif;
+  font-size: clamp(2.1rem, 8vw, 4.4rem);
+  margin: 0 0 1.2rem;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+}
+
+.search-form {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 0.55rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: var(--shadow);
+}
+
+.search-input {
+  min-width: 0;
+  flex: 1 1 320px;
+  border: 0;
+  font-size: clamp(1rem, 2.6vw, 1.2rem);
+  padding: 0.85rem 0.9rem 0.85rem 2.9rem;
+  border-radius: var(--radius-lg);
+  outline: none;
+  color: var(--text);
+}
+
+.search-input.is-hint {
+  color: #8690a4;
+}
+
+.search-input::placeholder {
+  color: var(--subtext);
+}
+
+.search-icon {
+  position: absolute;
+  left: 1.02rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #96a0b2;
+  width: 1.22rem;
+  height: 1.22rem;
+  pointer-events: none;
+  user-select: none;
+}
+
+.search-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.read-button {
+  flex: 0 0 auto;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.85rem 1.3rem;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.read-button:hover {
+  background: var(--accent-hover);
+}
+
+.suggestions {
+  list-style: none;
+  margin: 0;
+  padding: 0.2rem;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  background: var(--surface);
+  border: 1px solid #e7ebf3;
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  display: none;
+  z-index: 25;
+}
+
+.suggestions.active {
+  display: block;
+}
+
+.suggestions-item {
+  border-radius: var(--radius-md);
+}
+
+.suggestions-link {
+  display: block;
+  color: var(--text);
+  text-decoration: none;
+  padding: 0.8rem 0.9rem;
+  border-radius: var(--radius-md);
+}
+
+.suggestions-link:hover,
+.suggestions-link:focus-visible {
+  background: #f1f4fb;
+  outline: none;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 24, 40, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal {
+  width: min(92vw, 520px);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 1.2rem 1.2rem 1.4rem;
+  position: relative;
+}
+
+.modal-close {
+  position: absolute;
+  right: 0.7rem;
+  top: 0.7rem;
+  border: 0;
+  background: transparent;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.modal-title {
+  margin: 0 1.8rem 0.6rem 0;
+  font-size: 1.2rem;
+}
+
+.modal-text {
+  margin: 0;
+  color: var(--subtext);
+  line-height: 1.6;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .landing-top {
+    padding: 0.45rem 0.8rem;
+  }
+
+  .rht-logo {
+    height: 44px;
+  }
+
+  .about-button {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.85rem;
+  }
+
+  .search-shell {
+    margin-top: 10vh;
+    width: min(95vw, 720px);
+  }
+
+  .search-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.32rem;
+    row-gap: 0.32rem;
+    border-radius: 22px;
+    padding: 0.34rem;
+  }
+
+  .search-input {
+    flex: 0 0 auto;
+    width: 100%;
+    font-size: 0.88rem;
+    padding: 0.62rem 0.62rem 0.62rem 2.1rem;
+  }
+
+  .search-icon {
+    left: 0.72rem;
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+
+  .read-button {
+    padding: 0.52rem 0.64rem;
+    font-size: 0.76rem;
+    border-radius: 999px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}

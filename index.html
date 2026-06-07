@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tochka.Text</title>
+    <meta
+      name="description"
+      content="Tochka.Text — нишевый литературный форум и альманах."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;700;800&family=Playfair+Display:wght@600;700&family=Space+Grotesk:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles/main.css" />
+  </head>
+  <body>
+    <main class="landing">
+      <header class="landing-top">
+        <a class="rht-logo-link" href="#" aria-label="РШТ">
+          <img class="rht-logo" src="./pix/rht_logo.png" alt="Логотип РШТ" />
+        </a>
+        <button class="about-button" id="aboutButton" type="button">о проекте</button>
+      </header>
+
+      <section class="search-shell" aria-label="Поиск по разделам">
+        <h1 class="brand">Tochka.Text</h1>
+
+        <form id="searchForm" class="search-form" autocomplete="off">
+          <label class="sr-only" for="searchInput">Поисковая строка</label>
+          <span class="search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5"></circle>
+              <line x1="16" y1="16" x2="21" y2="21"></line>
+            </svg>
+          </span>
+          <input
+            id="searchInput"
+            class="search-input"
+            type="text"
+            value="Литературный альманах"
+          />
+          <button class="read-button" type="submit">читать</button>
+          <ul class="suggestions" id="suggestions" role="listbox" aria-label="Недавние запросы"></ul>
+        </form>
+      </section>
+    </main>
+
+    <div class="modal-overlay" id="aboutModal" aria-hidden="true">
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+        <button class="modal-close" id="closeAbout" type="button" aria-label="Закрыть окно">
+          ✕
+        </button>
+        <h2 class="modal-title" id="aboutTitle">О проекте</h2>
+        <p class="modal-text">
+          Перед вами альманах, созданный из материалов годового курса "Текст-драйв:
+          практика современного письма". Три группы учеников РШТ (и один педагог) целый
+          год читали, писали и редактировали, чтобы наконец поделиться своим творчеством.
+          Страх белого листа остался позади. За время курса мы написали десятки черновиков,
+          разобрали приёмы сторителлинга, научились удерживать внимание и работать с
+          ритмом. В этом сборнике наши лучшие тексты. Откровенные, живые, с характером.
+          Доказательство того, что писать может каждый, кто готов начать.
+        </p>
+        <p class="modal-text">Приятного чтения!</p>
+      </section>
+    </div>
+
+    <script type="module" src="./scripts/main.js"></script>
+  </body>
+</html>
