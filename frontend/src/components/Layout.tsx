@@ -23,6 +23,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <NavLink to="/feed">Лента</NavLink>
             <NavLink to="/collections">Подборки</NavLink>
             <NavLink to="/search">Поиск</NavLink>
+            <NavLink to="/docs">О проекте</NavLink>
             {user ? (
               <UserMenu />
             ) : (

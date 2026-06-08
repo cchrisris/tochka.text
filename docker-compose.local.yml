@@ -1,0 +1,16 @@
+#docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build db backend frontend_local
+services:
+  frontend_local:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    environment:
+      DOMAIN: localhost
+    command: ["nginx", "-g", "daemon off;"]
+    ports:
+      - "8080:80"
+    volumes:
+      - uploads:/usr/share/nginx/html/uploads:ro
+      - ./frontend/local.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      - backend

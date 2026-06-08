@@ -12,6 +12,7 @@ import { CollectionsPage } from "./pages/CollectionsPage";
 import { CollectionPage } from "./pages/CollectionPage";
 import { SearchPage } from "./pages/SearchPage";
 import { AdminPage } from "./pages/AdminPage";
+import { DocsPage } from "./pages/DocsPage";
 import type { ReactNode } from "react";
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/users/:id" element={<ProfilePage />} />
         <Route path="/search" element={<SearchPage />} />
+        <Route path="/docs" element={<DocsPage />} />
         <Route path="/collections" element={<CollectionsPage />} />
         <Route path="/collections/:id" element={<CollectionPage />} />
         <Route

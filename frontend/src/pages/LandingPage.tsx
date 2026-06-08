@@ -46,6 +46,7 @@ export function LandingPage() {
             Лента
           </Link>
           <Link to={user ? "/new" : "/login"}>Написать</Link>
+          <Link to="/docs">О проекте</Link>
         </div>
       </section>
     </div>
