@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { FloatingWriteButton } from "../components/FloatingWriteButton";
 import { UserMenu } from "../components/UserMenu";
 
 export function LandingPage() {
@@ -45,10 +46,10 @@ export function LandingPage() {
           <Link to="/feed" className="landing-link-feed">
             Лента
           </Link>
-          <Link to={user ? "/new" : "/login"}>Написать</Link>
           <Link to="/docs">О проекте</Link>
         </div>
       </section>
+      <FloatingWriteButton />
     </div>
   );
 }
