@@ -6,13 +6,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-tochka}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tochka_dev_password}
       POSTGRES_DB: ${POSTGRES_DB:-tochka}
-    # Порт БД доступен только бэкенду по внутренней сети compose.
-    # Для локальной отладки клиентом БД раскомментируйте, привязав к localhost:
-    # ports:
-    #   - "127.0.0.1:5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
-      # SQL из этой папки выполняется один раз при первой инициализации БД
       - ./db/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tochka} -d ${POSTGRES_DB:-tochka}"]
@@ -31,7 +26,6 @@ services:
       BACKEND_PORT: ${BACKEND_PORT:-8080}
       UPLOADS_DIR: /data/uploads
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
-    # Порт наружу не публикуем: к бэкенду ходит только nginx по внутренней сети.
     expose:
       - "8080"
     volumes:
@@ -44,7 +38,6 @@ services:
     build:
       context: ./frontend
       args:
-        # Пусто => относительный /api на том же origin (nginx проксирует на backend).
         VITE_API_URL: ${VITE_API_URL:-}
     restart: unless-stopped
     environment:
@@ -56,9 +49,8 @@ services:
       - uploads:/usr/share/nginx/html/uploads:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
-    # Периодически перечитываем конфиг, чтобы подхватывать обновлённые сертификаты.
     command: >-
-      /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
+      /bin/sh -c "/docker-entrypoint.d/20-envsubst-on-templates.sh; while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
     depends_on:
       - backend
 
@@ -69,7 +61,6 @@ services:
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
-    # Каждые 12 часов пробуем продлить; nginx сам перечитает конфиг (см. выше).
     entrypoint: >-
       /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done"
 
