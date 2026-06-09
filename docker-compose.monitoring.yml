@@ -1,7 +1,7 @@
 name: tochka-monitoring
 
 services:
-  # Хранилище метрик. Скрейпит cAdvisor и node-exporter (см. monitoring/prometheus/prometheus.yml).
+  # Хранилище метрик. Скрейпит node-exporter (см. monitoring/prometheus/prometheus.yml).
   prometheus:
     image: prom/prometheus:v2.54.1
     restart: unless-stopped
@@ -40,22 +40,6 @@ services:
       - monitoring
     depends_on:
       - loki
-
-  # Метрики по контейнерам: CPU, память, сеть, диск (бэкенд, БД, nginx и т.д.).
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.49.1
-    restart: unless-stopped
-    privileged: true
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    devices:
-      - /dev/kmsg
-    networks:
-      - monitoring
 
   # Метрики хоста: загрузка CPU, RAM, дисковое пространство, сеть сервера.
   node-exporter:
