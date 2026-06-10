@@ -5,6 +5,7 @@
 
 #include "handlers.hpp"
 #include "json_helpers.hpp"
+#include "profanity_filter.hpp"
 #include "serialize.hpp"
 #include "work_query.hpp"
 
@@ -21,16 +22,16 @@ constexpr std::size_t kMaxTagLen = 50;
 
 enum class OwnerCheck { NotFound, Forbidden, Ok };
 
-std::vector<std::string> ParseTags(const boost::json::value& body) {
+std::vector<std::string> ParseTags(const boost::json::value &body) {
   std::vector<std::string> tags;
   if (!body.is_object()) {
     return tags;
   }
-  const auto* entry = body.as_object().find("tags");
+  const auto *entry = body.as_object().find("tags");
   if (entry == body.as_object().end() || !entry->value().is_array()) {
     return tags;
   }
-  for (const auto& element : entry->value().as_array()) {
+  for (const auto &element : entry->value().as_array()) {
     if (!element.is_string()) {
       continue;
     }
@@ -42,38 +43,37 @@ std::vector<std::string> ParseTags(const boost::json::value& body) {
   return tags;
 }
 
-void SyncTags(pqxx::work& txn, long long work_id,
-              const std::vector<std::string>& tags) {
+void SyncTags(pqxx::work &txn, long long work_id,
+              const std::vector<std::string> &tags) {
   txn.exec_params("DELETE FROM work_tags WHERE work_id = $1", work_id);
-  for (const auto& name : tags) {
+  for (const auto &name : tags) {
     auto row = txn.exec_params(
         "INSERT INTO tags (name) VALUES ($1) "
         "ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
         name);
-    txn.exec_params(
-        "INSERT INTO work_tags (work_id, tag_id) VALUES ($1, $2) "
-        "ON CONFLICT DO NOTHING",
-        work_id, row[0]["id"].as<long long>());
+    txn.exec_params("INSERT INTO work_tags (work_id, tag_id) VALUES ($1, $2) "
+                    "ON CONFLICT DO NOTHING",
+                    work_id, row[0]["id"].as<long long>());
   }
 }
 
-int ClampInt(const std::string& text, int fallback, int low, int high) {
+int ClampInt(const std::string &text, int fallback, int low, int high) {
   try {
     return std::clamp(std::stoi(text), low, high);
-  } catch (const std::exception&) {
+  } catch (const std::exception &) {
     return fallback;
   }
 }
 
-std::string NormalizeGenre(const std::string& genre) {
+std::string NormalizeGenre(const std::string &genre) {
   return genre == "prose" ? "prose" : "poem";
 }
 
-bool TooLong(const std::string& title, const std::string& body) {
+bool TooLong(const std::string &title, const std::string &body) {
   return title.size() > kMaxTitleLen || body.size() > kMaxBodyLen;
 }
 
-std::string BuildWhere(pqxx::work& txn, const RequestContext& ctx) {
+std::string BuildWhere(pqxx::work &txn, const RequestContext &ctx) {
   std::vector<std::string> where{"w.status = 'published'"};
   if (auto genre = ctx.query_param("genre");
       genre && (*genre == "poem" || *genre == "prose")) {
@@ -107,15 +107,15 @@ std::string BuildWhere(pqxx::work& txn, const RequestContext& ctx) {
   return clause;
 }
 
-boost::json::object SelectWork(pqxx::work& txn, long long work_id,
+boost::json::object SelectWork(pqxx::work &txn, long long work_id,
                                long long viewer_id) {
   auto rows = txn.exec(WorkProjection(viewer_id) +
                        "WHERE w.id = " + txn.quote(work_id));
   return WorkRow(rows[0]);
 }
 
-OwnerCheck CheckOwner(pqxx::work& txn, long long work_id,
-                      const RequestContext& ctx) {
+OwnerCheck CheckOwner(pqxx::work &txn, long long work_id,
+                      const RequestContext &ctx) {
   auto rows =
       txn.exec_params("SELECT author_id FROM works WHERE id = $1", work_id);
   if (rows.empty()) {
@@ -126,7 +126,7 @@ OwnerCheck CheckOwner(pqxx::work& txn, long long work_id,
   return (owner || ctx.is_admin()) ? OwnerCheck::Ok : OwnerCheck::Forbidden;
 }
 
-JsonResponse Feed(AppContext& app, RequestContext& ctx) {
+JsonResponse Feed(AppContext &app, RequestContext &ctx) {
   long long viewer_id = ctx.user_id.value_or(0);
   auto conn = app.db.acquire();
   pqxx::work txn(conn.get());
@@ -147,7 +147,7 @@ JsonResponse Feed(AppContext& app, RequestContext& ctx) {
       {"items", std::move(items)}, {"page", page}, {"limit", limit}});
 }
 
-bool VisibleTo(const pqxx::row& row, const RequestContext& ctx) {
+bool VisibleTo(const pqxx::row &row, const RequestContext &ctx) {
   if (row["status"].as<std::string>() != "hidden") {
     return true;
   }
@@ -155,7 +155,7 @@ bool VisibleTo(const pqxx::row& row, const RequestContext& ctx) {
          (ctx.user_id && row["author_id"].as<long long>() == *ctx.user_id);
 }
 
-JsonResponse GetWork(AppContext& app, RequestContext& ctx) {
+JsonResponse GetWork(AppContext &app, RequestContext &ctx) {
   long long work_id = 0;
   if (!ParsePathId(ctx, "id", work_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -171,7 +171,7 @@ JsonResponse GetWork(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"work", WorkRow(rows[0])}});
 }
 
-JsonResponse CreateWork(AppContext& app, RequestContext& ctx) {
+JsonResponse CreateWork(AppContext &app, RequestContext &ctx) {
   auto body = ctx.json_body();
   std::string title = JsonString(body, "title");
   std::string text = JsonString(body, "body");
@@ -180,6 +180,9 @@ JsonResponse CreateWork(AppContext& app, RequestContext& ctx) {
   }
   if (TooLong(title, text)) {
     return JsonError(http_status::kBadRequest, "Произведение слишком длинное");
+  }
+  if (WorkContainsProfanity(title, text, ParseTags(body))) {
+    return JsonError(http_status::kBadRequest, kProfanityErrorMessage);
   }
 
   auto conn = app.db.acquire();
@@ -198,14 +201,19 @@ JsonResponse CreateWork(AppContext& app, RequestContext& ctx) {
   return res;
 }
 
-JsonResponse UpdateWork(AppContext& app, RequestContext& ctx) {
+JsonResponse UpdateWork(AppContext &app, RequestContext &ctx) {
   long long work_id = 0;
   if (!ParsePathId(ctx, "id", work_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
   }
   auto body = ctx.json_body();
-  if (TooLong(JsonString(body, "title"), JsonString(body, "body"))) {
+  std::string title = JsonString(body, "title");
+  std::string text = JsonString(body, "body");
+  if (TooLong(title, text)) {
     return JsonError(http_status::kBadRequest, "Произведение слишком длинное");
+  }
+  if (WorkContainsProfanity(title, text, ParseTags(body))) {
+    return JsonError(http_status::kBadRequest, kProfanityErrorMessage);
   }
   auto conn = app.db.acquire();
   pqxx::work txn(conn.get());
@@ -221,8 +229,7 @@ JsonResponse UpdateWork(AppContext& app, RequestContext& ctx) {
   txn.exec_params(
       "UPDATE works SET title = $1, body = $2, genre = $3, cover_image = $4, "
       "updated_at = now() WHERE id = $5",
-      JsonString(body, "title"), JsonString(body, "body"),
-      NormalizeGenre(JsonString(body, "genre")),
+      title, text, NormalizeGenre(JsonString(body, "genre")),
       OptText(JsonString(body, "cover_image")), work_id);
   SyncTags(txn, work_id, ParseTags(body));
   JsonResponse res = JsonOk(
@@ -231,7 +238,7 @@ JsonResponse UpdateWork(AppContext& app, RequestContext& ctx) {
   return res;
 }
 
-JsonResponse DeleteWork(AppContext& app, RequestContext& ctx) {
+JsonResponse DeleteWork(AppContext &app, RequestContext &ctx) {
   long long work_id = 0;
   if (!ParsePathId(ctx, "id", work_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -250,19 +257,19 @@ JsonResponse DeleteWork(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"ok", true}});
 }
 
-}  // namespace
+} // namespace
 
-void RegisterWorksRoutes(Router& router, AppContext& app) {
+void RegisterWorksRoutes(Router &router, AppContext &app) {
   router.add("GET", "/api/works", AuthLevel::None,
-             [&app](RequestContext& ctx) { return Feed(app, ctx); });
+             [&app](RequestContext &ctx) { return Feed(app, ctx); });
   router.add("GET", "/api/works/:id", AuthLevel::None,
-             [&app](RequestContext& ctx) { return GetWork(app, ctx); });
+             [&app](RequestContext &ctx) { return GetWork(app, ctx); });
   router.add("POST", "/api/works", AuthLevel::User,
-             [&app](RequestContext& ctx) { return CreateWork(app, ctx); });
+             [&app](RequestContext &ctx) { return CreateWork(app, ctx); });
   router.add("PUT", "/api/works/:id", AuthLevel::User,
-             [&app](RequestContext& ctx) { return UpdateWork(app, ctx); });
+             [&app](RequestContext &ctx) { return UpdateWork(app, ctx); });
   router.add("DELETE", "/api/works/:id", AuthLevel::User,
-             [&app](RequestContext& ctx) { return DeleteWork(app, ctx); });
+             [&app](RequestContext &ctx) { return DeleteWork(app, ctx); });
 }
 
-}  // namespace tochka
+} // namespace tochka

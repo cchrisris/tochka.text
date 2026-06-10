@@ -30,6 +30,7 @@ add_executable(tochka_backend
     src/handlers_users.cpp
     src/handlers_admin.cpp
     src/handlers_uploads.cpp
+    src/profanity_filter.cpp
 )
 
 target_include_directories(tochka_backend PRIVATE src)

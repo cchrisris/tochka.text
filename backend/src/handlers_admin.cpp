@@ -4,6 +4,7 @@
 
 #include "handlers.hpp"
 #include "json_helpers.hpp"
+#include "profanity_filter.hpp"
 #include "serialize.hpp"
 
 namespace tochka {
@@ -17,7 +18,7 @@ constexpr std::size_t kMaxCssLen = 500;
 // hero_bg уходит в инлайновый CSS `background` на фронте. Поле admin-only,
 // но дополнительно режем символы, которыми можно вырваться из значения
 // свойства или подтянуть постороннюю логику.
-bool SafeCssValue(const std::string& value) {
+bool SafeCssValue(const std::string &value) {
   if (value.size() > kMaxCssLen) {
     return false;
   }
@@ -28,9 +29,9 @@ bool SafeCssValue(const std::string& value) {
   lower.reserve(value.size());
   std::transform(value.begin(), value.end(), std::back_inserter(lower),
                  [](unsigned char c) { return std::tolower(c); });
-  static const char* kBanned[] = {"javascript:", "expression(", "@import",
-                                  "</", "<script"};
-  for (const char* needle : kBanned) {
+  static const char *kBanned[] = {"javascript:", "expression(", "@import", "</",
+                                  "<script"};
+  for (const char *needle : kBanned) {
     if (lower.find(needle) != std::string::npos) {
       return false;
     }
@@ -38,7 +39,7 @@ bool SafeCssValue(const std::string& value) {
   return true;
 }
 
-JsonResponse CreateCollection(AppContext& app, RequestContext& ctx) {
+JsonResponse CreateCollection(AppContext &app, RequestContext &ctx) {
   auto body = ctx.json_body();
   std::string title = Trim(JsonString(body, "title"));
   if (title.empty() || title.size() > kMaxTitleLen) {
@@ -67,7 +68,7 @@ JsonResponse CreateCollection(AppContext& app, RequestContext& ctx) {
   return res;
 }
 
-JsonResponse UpdateCollection(AppContext& app, RequestContext& ctx) {
+JsonResponse UpdateCollection(AppContext &app, RequestContext &ctx) {
   long long target_id = 0;
   if (!ParsePathId(ctx, "id", target_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -100,7 +101,7 @@ JsonResponse UpdateCollection(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"ok", true}});
 }
 
-JsonResponse DeleteCollection(AppContext& app, RequestContext& ctx) {
+JsonResponse DeleteCollection(AppContext &app, RequestContext &ctx) {
   long long target_id = 0;
   if (!ParsePathId(ctx, "id", target_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -112,7 +113,7 @@ JsonResponse DeleteCollection(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"ok", true}});
 }
 
-JsonResponse AddWork(AppContext& app, RequestContext& ctx) {
+JsonResponse AddWork(AppContext &app, RequestContext &ctx) {
   long long collection_id = 0;
   if (!ParsePathId(ctx, "id", collection_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -133,7 +134,7 @@ JsonResponse AddWork(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"ok", true}});
 }
 
-JsonResponse RemoveWork(AppContext& app, RequestContext& ctx) {
+JsonResponse RemoveWork(AppContext &app, RequestContext &ctx) {
   long long collection_id = 0;
   long long work_id = 0;
   if (!ParsePathId(ctx, "id", collection_id) ||
@@ -149,8 +150,8 @@ JsonResponse RemoveWork(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"ok", true}});
 }
 
-JsonResponse SetStatus(AppContext& app, RequestContext& ctx, const char* table,
-                       const std::string& first, const std::string& second) {
+JsonResponse SetStatus(AppContext &app, RequestContext &ctx, const char *table,
+                       const std::string &first, const std::string &second) {
   long long target_id = 0;
   if (!ParsePathId(ctx, "id", target_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -161,6 +162,29 @@ JsonResponse SetStatus(AppContext& app, RequestContext& ctx, const char* table,
   }
   auto conn = app.db.acquire();
   pqxx::work txn(conn.get());
+  if (value == first) {
+    if (table == std::string("works")) {
+      auto rows = txn.exec_params("SELECT title, body FROM works WHERE id = $1",
+                                  target_id);
+      if (rows.empty()) {
+        return JsonError(http_status::kNotFound, "Не найдено");
+      }
+      if (WorkContainsProfanity(rows[0]["title"].as<std::string>(),
+                                rows[0]["body"].as<std::string>())) {
+        return JsonError(http_status::kBadRequest, kProfanityErrorMessage);
+      }
+    } else if (table == std::string("comments")) {
+      auto rows =
+          txn.exec_params("SELECT body FROM comments WHERE id = $1", target_id);
+      if (rows.empty()) {
+        return JsonError(http_status::kNotFound, "Не найдено");
+      }
+      if (ContainsProfanity(rows[0]["body"].as<std::string>())) {
+        return JsonError(http_status::kBadRequest,
+                         kCommentProfanityErrorMessage);
+      }
+    }
+  }
   auto row = txn.exec_params("UPDATE " + std::string(table) +
                                  " SET status = $1 WHERE id = $2 "
                                  "RETURNING id",
@@ -172,17 +196,17 @@ JsonResponse SetStatus(AppContext& app, RequestContext& ctx, const char* table,
   return JsonOk(boost::json::object{{"ok", true}, {"status", value}});
 }
 
-JsonResponse AdminWorks(AppContext& app, RequestContext& ctx) {
+JsonResponse AdminWorks(AppContext &app, RequestContext &ctx) {
   (void)ctx;
   auto conn = app.db.acquire();
   pqxx::work txn(conn.get());
-  auto rows = txn.exec(
-      "SELECT w.id, w.title, w.genre, w.status, w.created_at::text AS "
-      "created_at, u.id AS author_id, u.username AS author_username, "
-      "u.display_name AS author_name, "
-      "u.avatar_url AS author_avatar FROM works w JOIN users u "
-      "ON u.id = w.author_id ORDER BY w.created_at DESC LIMIT " +
-      std::to_string(kAdminFeedLimit));
+  auto rows =
+      txn.exec("SELECT w.id, w.title, w.genre, w.status, w.created_at::text AS "
+               "created_at, u.id AS author_id, u.username AS author_username, "
+               "u.display_name AS author_name, "
+               "u.avatar_url AS author_avatar FROM works w JOIN users u "
+               "ON u.id = w.author_id ORDER BY w.created_at DESC LIMIT " +
+               std::to_string(kAdminFeedLimit));
   boost::json::array items;
   for (auto row : rows) {
     items.push_back(
@@ -196,7 +220,7 @@ JsonResponse AdminWorks(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"items", std::move(items)}});
 }
 
-JsonResponse AdminUsers(AppContext& app, RequestContext& ctx) {
+JsonResponse AdminUsers(AppContext &app, RequestContext &ctx) {
   auto conn = app.db.acquire();
   pqxx::work txn(conn.get());
   std::string query = ctx.query_param("q").value_or("");
@@ -225,7 +249,7 @@ JsonResponse AdminUsers(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"items", std::move(items)}});
 }
 
-JsonResponse SetUserRole(AppContext& app, RequestContext& ctx) {
+JsonResponse SetUserRole(AppContext &app, RequestContext &ctx) {
   long long target_id = 0;
   if (!ParsePathId(ctx, "id", target_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -248,7 +272,7 @@ JsonResponse SetUserRole(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"ok", true}, {"role", role}});
 }
 
-JsonResponse AdminComments(AppContext& app, RequestContext& ctx) {
+JsonResponse AdminComments(AppContext &app, RequestContext &ctx) {
   (void)ctx;
   auto conn = app.db.acquire();
   pqxx::work txn(conn.get());
@@ -272,38 +296,38 @@ JsonResponse AdminComments(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"items", std::move(items)}});
 }
 
-}  // namespace
+} // namespace
 
-void RegisterAdminRoutes(Router& router, AppContext& app) {
+void RegisterAdminRoutes(Router &router, AppContext &app) {
   router.add(
       "POST", "/api/collections", AuthLevel::Admin,
-      [&app](RequestContext& ctx) { return CreateCollection(app, ctx); });
+      [&app](RequestContext &ctx) { return CreateCollection(app, ctx); });
   router.add(
       "PUT", "/api/collections/:id", AuthLevel::Admin,
-      [&app](RequestContext& ctx) { return UpdateCollection(app, ctx); });
+      [&app](RequestContext &ctx) { return UpdateCollection(app, ctx); });
   router.add(
       "DELETE", "/api/collections/:id", AuthLevel::Admin,
-      [&app](RequestContext& ctx) { return DeleteCollection(app, ctx); });
+      [&app](RequestContext &ctx) { return DeleteCollection(app, ctx); });
   router.add("POST", "/api/collections/:id/works", AuthLevel::Admin,
-             [&app](RequestContext& ctx) { return AddWork(app, ctx); });
+             [&app](RequestContext &ctx) { return AddWork(app, ctx); });
   router.add("DELETE", "/api/collections/:id/works/:workId", AuthLevel::Admin,
-             [&app](RequestContext& ctx) { return RemoveWork(app, ctx); });
+             [&app](RequestContext &ctx) { return RemoveWork(app, ctx); });
   router.add("PATCH", "/api/admin/works/:id/status", AuthLevel::Admin,
-             [&app](RequestContext& ctx) {
+             [&app](RequestContext &ctx) {
                return SetStatus(app, ctx, "works", "published", "hidden");
              });
   router.add("PATCH", "/api/admin/comments/:id/status", AuthLevel::Admin,
-             [&app](RequestContext& ctx) {
+             [&app](RequestContext &ctx) {
                return SetStatus(app, ctx, "comments", "visible", "hidden");
              });
   router.add("GET", "/api/admin/works", AuthLevel::Admin,
-             [&app](RequestContext& ctx) { return AdminWorks(app, ctx); });
+             [&app](RequestContext &ctx) { return AdminWorks(app, ctx); });
   router.add("GET", "/api/admin/comments", AuthLevel::Admin,
-             [&app](RequestContext& ctx) { return AdminComments(app, ctx); });
+             [&app](RequestContext &ctx) { return AdminComments(app, ctx); });
   router.add("GET", "/api/admin/users", AuthLevel::Admin,
-             [&app](RequestContext& ctx) { return AdminUsers(app, ctx); });
+             [&app](RequestContext &ctx) { return AdminUsers(app, ctx); });
   router.add("PATCH", "/api/admin/users/:id/role", AuthLevel::Admin,
-             [&app](RequestContext& ctx) { return SetUserRole(app, ctx); });
+             [&app](RequestContext &ctx) { return SetUserRole(app, ctx); });
 }
 
-}  // namespace tochka
+} // namespace tochka

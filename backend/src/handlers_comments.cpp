@@ -3,6 +3,7 @@
 
 #include "handlers.hpp"
 #include "json_helpers.hpp"
+#include "profanity_filter.hpp"
 #include "serialize.hpp"
 
 namespace tochka {
@@ -10,14 +11,14 @@ namespace {
 
 constexpr std::size_t kMaxCommentLen = 5000;
 
-long long LikesCount(pqxx::work& txn, long long work_id) {
+long long LikesCount(pqxx::work &txn, long long work_id) {
   return txn
       .exec_params("SELECT count(*) AS c FROM likes WHERE work_id = $1",
                    work_id)[0]["c"]
       .as<long long>();
 }
 
-boost::json::object CommentRow(const pqxx::row& row) {
+boost::json::object CommentRow(const pqxx::row &row) {
   boost::json::object obj;
   obj["id"] = row["id"].as<long long>();
   obj["body"] = row["body"].as<std::string>();
@@ -26,7 +27,7 @@ boost::json::object CommentRow(const pqxx::row& row) {
   return obj;
 }
 
-JsonResponse ListComments(AppContext& app, RequestContext& ctx) {
+JsonResponse ListComments(AppContext &app, RequestContext &ctx) {
   long long work_id = 0;
   if (!ParsePathId(ctx, "id", work_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -48,7 +49,7 @@ JsonResponse ListComments(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"items", std::move(items)}});
 }
 
-JsonResponse CreateComment(AppContext& app, RequestContext& ctx) {
+JsonResponse CreateComment(AppContext &app, RequestContext &ctx) {
   long long work_id = 0;
   if (!ParsePathId(ctx, "id", work_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -59,6 +60,9 @@ JsonResponse CreateComment(AppContext& app, RequestContext& ctx) {
   }
   if (text.size() > kMaxCommentLen) {
     return JsonError(http_status::kBadRequest, "Комментарий слишком длинный");
+  }
+  if (ContainsProfanity(text)) {
+    return JsonError(http_status::kBadRequest, kCommentProfanityErrorMessage);
   }
   auto conn = app.db.acquire();
   pqxx::work txn(conn.get());
@@ -80,7 +84,7 @@ JsonResponse CreateComment(AppContext& app, RequestContext& ctx) {
   return res;
 }
 
-JsonResponse DeleteComment(AppContext& app, RequestContext& ctx) {
+JsonResponse DeleteComment(AppContext &app, RequestContext &ctx) {
   long long comment_id = 0;
   if (!ParsePathId(ctx, "id", comment_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -101,7 +105,7 @@ JsonResponse DeleteComment(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"ok", true}});
 }
 
-JsonResponse Like(AppContext& app, RequestContext& ctx) {
+JsonResponse Like(AppContext &app, RequestContext &ctx) {
   long long work_id = 0;
   if (!ParsePathId(ctx, "id", work_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -111,16 +115,15 @@ JsonResponse Like(AppContext& app, RequestContext& ctx) {
   if (txn.exec_params("SELECT 1 FROM works WHERE id = $1", work_id).empty()) {
     return JsonError(http_status::kNotFound, "Произведение не найдено");
   }
-  txn.exec_params(
-      "INSERT INTO likes (user_id, work_id) VALUES ($1, $2) "
-      "ON CONFLICT DO NOTHING",
-      *ctx.user_id, work_id);
+  txn.exec_params("INSERT INTO likes (user_id, work_id) VALUES ($1, $2) "
+                  "ON CONFLICT DO NOTHING",
+                  *ctx.user_id, work_id);
   long long count = LikesCount(txn, work_id);
   txn.commit();
   return JsonOk(boost::json::object{{"liked", true}, {"likes_count", count}});
 }
 
-JsonResponse Unlike(AppContext& app, RequestContext& ctx) {
+JsonResponse Unlike(AppContext &app, RequestContext &ctx) {
   long long work_id = 0;
   if (!ParsePathId(ctx, "id", work_id)) {
     return JsonError(http_status::kBadRequest, "Некорректный идентификатор");
@@ -134,19 +137,19 @@ JsonResponse Unlike(AppContext& app, RequestContext& ctx) {
   return JsonOk(boost::json::object{{"liked", false}, {"likes_count", count}});
 }
 
-}  // namespace
+} // namespace
 
-void RegisterCommentRoutes(Router& router, AppContext& app) {
+void RegisterCommentRoutes(Router &router, AppContext &app) {
   router.add("GET", "/api/works/:id/comments", AuthLevel::None,
-             [&app](RequestContext& ctx) { return ListComments(app, ctx); });
+             [&app](RequestContext &ctx) { return ListComments(app, ctx); });
   router.add("POST", "/api/works/:id/comments", AuthLevel::User,
-             [&app](RequestContext& ctx) { return CreateComment(app, ctx); });
+             [&app](RequestContext &ctx) { return CreateComment(app, ctx); });
   router.add("DELETE", "/api/comments/:id", AuthLevel::User,
-             [&app](RequestContext& ctx) { return DeleteComment(app, ctx); });
+             [&app](RequestContext &ctx) { return DeleteComment(app, ctx); });
   router.add("POST", "/api/works/:id/like", AuthLevel::User,
-             [&app](RequestContext& ctx) { return Like(app, ctx); });
+             [&app](RequestContext &ctx) { return Like(app, ctx); });
   router.add("DELETE", "/api/works/:id/like", AuthLevel::User,
-             [&app](RequestContext& ctx) { return Unlike(app, ctx); });
+             [&app](RequestContext &ctx) { return Unlike(app, ctx); });
 }
 
-}  // namespace tochka
+} // namespace tochka
